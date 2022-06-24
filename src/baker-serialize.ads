@@ -8,24 +8,19 @@ generic
 
    Label : Label_Type;
 package Baker.Serialize is
-   function Is_Sorted (X : String) return Boolean
-   is (X'Length < 2
-       or else
-         (for all I in X'First .. X'Last - 1 => X (I) < X (I + 1)));
+   type Cookie_Alphabet (<>) is private;
 
-   subtype Cookie_Alphabet is  String
-     with
-       Dynamic_Predicate =>
-         Cookie_Alphabet'Length > 1
-         and then
-           Is_Sorted (Cookie_Alphabet);
-
-   Rfc_6265_Alphabet : constant Cookie_Alphabet :=
-                         "!\#$%&'()*+-./0123456789:<=>?@"
-                         & "ABCDEFGHIJKLMNOPQRSTUVWXYZ[]^_`"
-                         & "abcdefghijklmnopqrstuvwxyz{|}~";
+   Rfc_6265_Alphabet : constant Cookie_Alphabet;
 
    type Optimization_Choice is (Speed, Size);
+
+   function Has_Duplicated_Chars (X : String) return Boolean;
+
+   function Make_Alphabet (Alphabet : String;
+                           Optimize : Optimization_Choice := Speed)
+                           return Cookie_Alphabet
+     with
+       Pre => not Has_Duplicated_Chars (Alphabet);
 
    type Cookie_Type is new String;
 
@@ -56,5 +51,36 @@ package Baker.Serialize is
       Status : out Parsing_Result;
       Cookie : Cookie_Type;
       Key    : Core.Salsa20_Key);
+private
+   Empty_Entry : constant Integer := -1;
+
+   type Reverse_Map is array (Character) of Integer;
+
+   function Is_Inverse (Dir : String;
+                        Rev : Reverse_Map)
+                        return Boolean
+   is ((for all I in Dir'Range =>
+           Rev (Dir (I)) = I)
+        and then
+         (for all Ch in Rev'Range =>
+             Rev (Ch) = Empty_Entry or else Dir (Rev (Ch)) = Ch));
+
+   type Cookie_Alphabet (Size : Positive) is
+      record
+         Optimization     : Optimization_Choice;
+         Direct_Alphabet  : String (1 .. Size);
+         Reverse_Alphabet : Reverse_Map;
+      end record
+     with
+       Dynamic_Predicate =>
+         not Has_Duplicated_Chars (Cookie_Alphabet.Direct_Alphabet)
+     and then
+       Is_Inverse (Cookie_Alphabet.Direct_Alphabet,
+                   Cookie_Alphabet.Reverse_Alphabet);
+
+   Rfc_6265_Alphabet : constant Cookie_Alphabet :=
+                         Make_Alphabet ("!\#$%&'()*+-./0123456789:<=>?@"
+                                        & "ABCDEFGHIJKLMNOPQRSTUVWXYZ[]^_`"
+                                        & "abcdefghijklmnopqrstuvwxyz{|}~");
 
 end Baker.Serialize;
