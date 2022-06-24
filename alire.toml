@@ -1,0 +1,9 @@
+name = "baker"
+description = "Shiny new project"
+version = "0.1.0-dev"
+
+authors = ["Riccardo Bernardini"]
+maintainers = ["Riccardo Bernardini <riccardo.bernardini@uniud.it>"]
+maintainers-logins = ["fintatarta"]
+[[depends-on]]
+sparknacl = "^3.0.0"
