@@ -197,16 +197,19 @@ package body Baker.Alphabets is
          Nbit_Tail : Bit_Counter := 0;
          Input_Cursor : Integer_32 := Input'First;
 
-         Input_Size : constant Positive := 8 * Input'Length;
-
+         --
+         --  Number of output symbols.  The number of bits of the input
+         --  is 8 bit/value, while every output symbol stores Log_Size
+         --  bits.  If 8 * Input'Length is divisible by Log_Size we need
+         --  exactly 8 * Input'Length /Log_Size; otherwise we need
+         --  one additional symbol.
+         --
+         --  We add the additional symbol anyway since it suffices that
+         --  Output_Size is large enough, it is not necessary that is
+         --  the exact number of output symbols.
+         --
          Output_Size : constant Positive :=
-                         Input_Size / Positive (Alphabet.Log_Size)
-                         + (if
-                              Input_Size mod Positive (Alphabet.Log_Size) /= 0
-                            then
-                               1
-                            else
-                               0);
+                         8 * Input'Length / Positive (Alphabet.Log_Size) + 1;
 
          Result : String (1 .. Output_Size);
          Output_Cursor : Natural := Result'First;
@@ -271,15 +274,93 @@ package body Baker.Alphabets is
    -- To_Byte_Seq --
    -----------------
 
-   function To_Byte_Seq
-     (Text : String; Alphabet : Cookie_Alphabet) return Byte_Seq
+   function To_Byte_Seq (Text     : String;
+                         Alphabet : Cookie_Alphabet)
+                         return Byte_Seq
    is
+      use Interfaces;
+
+      Tail : Unsigned_16 := 0;
+      Nbit : Bit_Counter := 0;
+      Input_Cursor : Positive := Text'First;
+
+      Result : Byte_Seq (0 .. Text'Length - 1);
+      Output_Cursor : Integer_32 := Result'First;
+
+      procedure Shift_Input is
+         function Val (Idx : Positive) return Unsigned_16
+         is
+            V : constant Integer := Alphabet.Reverse_Alphabet (Text (Idx));
+         begin
+            if V = Empty_Entry then
+               raise Program_Error;
+            end if;
+
+            return Unsigned_16 (V);
+         end Val;
+      begin
+         Tail := Tail + Val (Input_Cursor) * 2 ** Natural (Nbit);
+         Nbit := Nbit + Alphabet.Log_Size;
+         Input_Cursor := Input_Cursor + 1;
+      end Shift_Input;
+
+      procedure Push_Output (X : Unsigned_16) is
+      begin
+         Result (Output_Cursor) := Byte (X);
+         Output_Cursor := Output_Cursor + 1;
+      end Push_Output;
    begin
       if Alphabet.Optimization = Size then
          return To_Byte_Seq_Compact (Text, Alphabet);
       end if;
-      pragma Compile_Time_Warning (Standard.True, "To_Byte_Seq unimplemented");
-      return raise Program_Error with "Unimplemented function To_Byte_Seq";
+
+      --
+      --  The input value (Tail, Nbit, I) is
+      --
+      --     Q = Tail + 2**Nbit * sum_{k=I}^L V(k) 2**(nu*(k-I))
+      --
+      --  If Nbit >= 8 then
+      --
+      --     Q mod 256 = Tail mod 256
+      --     Q / 256 = Tail / 256 + 2**(Nbit-8) * sum_{k=I}^L ...
+      --
+      --  If Nbit - 8 >= 8 then the new representives are
+      --
+      --     Tail' = Tail / 256
+      --     Nbit' = Nbit - 8
+      --     I
+      --
+      --  If Nbit - 8 < 8 and I <= L we can borrow
+      --
+      --     Tail'' = Tail' + V(I) * 2**Nbit'
+      --     Nbit'' = Nbit' + 8
+      --     I' = I + 1
+      --
+      --  Borrowing is done as long as Nbit < 8 and I <= L.
+      --  When Nbit < 8 and I > L the conversion is completed
+      --
+
+      Tail := 0;
+      Nbit := 0;
+
+      loop
+         while Nbit < 8 and then Input_Cursor <= Text'Last loop
+            Shift_Input;
+         end loop;
+
+         Push_Output (Tail mod 256);
+         Tail := Tail / 256;
+
+         --
+         --  If Nbit < 8 it must be Input_Cursor > Text'Last
+         --  otherwise we would had be still in the while loop
+         --
+         exit when Nbit < 8;
+      end loop;
+
+      pragma Assert (Tail = 0 and then Input_Cursor > Text'Last);
+
+      return Result (Result'First .. Output_Cursor - 1);
    end To_Byte_Seq;
 
 end Baker.Alphabets;
