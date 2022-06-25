@@ -63,6 +63,13 @@ package body Baker.Data_Packets is
       return To_Label (Byte_Seq (Item (From .. To)));
    end Label_Of;
 
+   function Content_Of (Item : Tagged_Element)
+                        return System.Storage_Elements.Storage_Array
+   is
+   begin
+
+   end Content_Of;
+
    ----------
    -- Join --
    ----------
