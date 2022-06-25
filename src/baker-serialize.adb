@@ -3,13 +3,11 @@ with Ada.Numerics.Discrete_Random;
 with Ada.Storage_IO;
 
 with SPARKNaCl.Secretbox;
-with Interfaces;
-with System.Storage_Elements;
+
+with Baker.Data_Packets;
 
 package body Baker.Serialize is
-   use type Interfaces.Integer_32;
-
-   package Elemnt_Storage_Io is
+   package Element_Storage_Io is
      new Ada.Storage_Io (Element_Type);
 
    package Byte_Generators is
@@ -30,62 +28,6 @@ package body Baker.Serialize is
 
       return Result;
    end Random_Nonce;
-
-   type Full_Packet is new Byte_Seq;
-   type Encrypted_Payload is new Byte_Seq;
-
-   function Join (Packet : Encrypted_Payload;
-                  Nonce  : Stream.HSalsa20_Nonce)
-                  return Full_Packet
-   is (Full_Packet (Byte_Seq (Nonce) & Byte_Seq (Packet)));
-
-   function Nonce_Of (Item : Full_Packet) return Stream.HSalsa20_Nonce
-   is (Stream.HSalsa20_Nonce (Item (Item'First .. Item'First + 23)));
-
-   function Payload_Of (Item : Full_Packet) return Encrypted_Payload
-   is (Encrypted_Payload (Item (Item'First + 24 .. Item'Last)));
-
-   type Tagged_Element is new Byte_Seq;
-
-   function To_Byte_Seq (Input : Elemnt_Storage_Io.Buffer_Type)
-                          return Byte_Seq
-   is
-      pragma Compile_Time_Error
-        (System.Storage_Elements.Storage_Element'Size /= 8,
-         "At the moment it requires that storage elements are octects");
-
-      use Interfaces;
-
-      Result : Byte_Seq
-        (Integer_32 (Input'First) .. Integer_32 (Input'Last));
-   begin
-      for I in Input'Range loop
-         Result (Integer_32 (I)) := Byte (Input (I));
-      end loop;
-
-      return Result;
-   end To_Byte_Seq;
-
-   function To_Byte_Seq (Input : Label_Type) return Byte_Seq
-   is
-      use Interfaces;
-
-      Result : Byte_Seq
-        (Integer_32 (Input'First) .. Integer_32 (Input'Last));
-   begin
-      for I in Input'Range loop
-         Result (Integer_32 (I)) := Byte (Character'Pos (Input (I)));
-      end loop;
-
-      return Result;
-   end To_Byte_Seq;
-
-   function Join (Label   : Label_Type;
-                  Content : Elemnt_Storage_Io.Buffer_Type)
-                  return Tagged_Element
-   is (Tagged_Element (Zero_Bytes_32
-       & To_Byte_Seq (Label)
-       & To_Byte_Seq (Content)));
 
    -----------------
    -- Make_Cookie --
@@ -109,9 +51,11 @@ package body Baker.Serialize is
       Alphabet : Alphabets.Cookie_Alphabet := Rfc_6265_Alphabet)
       return Cookie_Type
    is
-      Buffer : Elemnt_Storage_Io.Buffer_Type;
+      use Data_Packets;
+
+      Buffer : Element_Storage_Io.Buffer_Type;
    begin
-      Elemnt_Storage_Io.Write (Buffer => Buffer,
+      Element_Storage_Io.Write (Buffer => Buffer,
                                Item   => Item);
 
       declare
@@ -145,13 +89,14 @@ package body Baker.Serialize is
       Alphabet :     Alphabets.Cookie_Alphabet)
    is
       use Alphabets;
+      use Data_Packets;
 
       Packet : constant Full_Packet :=
                  Full_Packet (To_Byte_Seq (String (Cookie), Alphabet));
 
       Nonce     : constant Stream.HSalsa20_Nonce := Nonce_Of (Packet);
       Encrypted : constant Encrypted_Payload := Payload_Of (Packet);
-      Cleartext : Byte_Seq (Encrypted'Range);
+      Cleartext : Tagged_Element (Encrypted'Range);
       Valid_Data : Boolean;
    begin
       Secretbox.Open (M      => Byte_Seq (Cleartext),
@@ -170,8 +115,8 @@ package body Baker.Serialize is
          return;
       end if;
 
-      Elemnt_Storage_Io.Read (Buffer => Data_Buffer (Cleartext),
-                              Item   => Item);
+      Element_Storage_Io.Read (Buffer => Content_Of (Cleartext),
+                               Item   => Item);
 
       Status := Success;
    end Parse_Cookie;
