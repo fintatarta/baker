@@ -11,3 +11,4 @@
 /lib/
 /alire/
 /config/
+test/obj/[a-z]*

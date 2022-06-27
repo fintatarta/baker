@@ -40,7 +40,7 @@ package Baker.Serialize is
       Status : out Parsing_Result;
       Cookie : Cookie_Type;
       Key    : Core.Salsa20_Key;
-      Alphabet : Alphabets.Cookie_Alphabet);
+      Alphabet : Alphabets.Cookie_Alphabet := Rfc_6265_Alphabet);
 private
    Rfc_6265_Alphabet : constant Alphabets.Cookie_Alphabet :=
                          Alphabets.Make_Alphabet

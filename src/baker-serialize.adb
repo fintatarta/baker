@@ -5,6 +5,7 @@ with Ada.Storage_IO;
 with SPARKNaCl.Secretbox;
 
 with Baker.Data_Packets;
+with Ada.Text_IO; use Ada.Text_IO;
 
 package body Baker.Serialize is
    package Element_Storage_Io is
@@ -40,6 +41,18 @@ package body Baker.Serialize is
       return Cookie_Type
    is (Make_Cookie (Item, Key, Random_Nonce, Alphabet));
 
+   procedure Dump (X : Stream.HSalsa20_Nonce)
+   is
+   begin
+      Put ("[");
+      for C of X loop
+         Put (C'Image);
+      end loop;
+
+      Put_Line ("]");
+
+   end Dump;
+
    -----------------
    -- Make_Cookie --
    -----------------
@@ -55,8 +68,10 @@ package body Baker.Serialize is
 
       Buffer : Element_Storage_Io.Buffer_Type;
    begin
+      Dump (Nonce);
+
       Element_Storage_Io.Write (Buffer => Buffer,
-                               Item   => Item);
+                                Item   => Item);
 
       declare
          Packet : constant Tagged_Element := Join (Label, Buffer);
@@ -86,7 +101,7 @@ package body Baker.Serialize is
       Status   : out Parsing_Result;
       Cookie   :     Cookie_Type;
       Key      :     Core.Salsa20_Key;
-      Alphabet :     Alphabets.Cookie_Alphabet)
+      Alphabet :     Alphabets.Cookie_Alphabet := Rfc_6265_Alphabet)
    is
       use Alphabets;
       use Data_Packets;
@@ -94,11 +109,12 @@ package body Baker.Serialize is
       Packet : constant Full_Packet :=
                  Full_Packet (To_Byte_Seq (String (Cookie), Alphabet));
 
-      Nonce     : constant Stream.HSalsa20_Nonce := Nonce_Of (Packet);
-      Encrypted : constant Encrypted_Payload := Payload_Of (Packet);
-      Cleartext : Tagged_Element (Encrypted'Range);
+      Nonce      : constant Stream.HSalsa20_Nonce := Nonce_Of (Packet);
+      Encrypted  : constant Encrypted_Payload := Payload_Of (Packet);
+      Cleartext  : Tagged_Element (Encrypted'Range);
       Valid_Data : Boolean;
    begin
+      Dump (Nonce);
       Secretbox.Open (M      => Byte_Seq (Cleartext),
                       Status => Valid_Data,
                       C      => Byte_Seq (Encrypted),

@@ -2,10 +2,13 @@ pragma Ada_2012;
 
 with Ada.Containers.Generic_Array_Sort;
 with Ada.Strings.Fixed;
+with Ada.Text_IO; use Ada.Text_IO;
 with Interfaces;
 
 package body Baker.Alphabets is
    use SPARKNaCl;
+
+   Warning_Flag : constant Boolean := False;
 
    procedure Sort_String is
      new Ada.Containers.Generic_Array_Sort (Index_Type   => Positive,
@@ -106,7 +109,9 @@ package body Baker.Alphabets is
    is
       pragma Unreferenced (Alphabet, Input);
    begin
-      pragma Compile_Time_Warning (True, "To_text_compact unimplemented");
+      pragma Compile_Time_Warning
+        (Warning_Flag, "To_text_compact unimplemented");
+
       return raise Program_Error;
    end To_Text_Compact;
 
@@ -225,7 +230,12 @@ package body Baker.Alphabets is
 
          procedure Push (C : Unsigned_16) is
          begin
-            Result (Output_Cursor) := Alphabet.Direct_Alphabet (Integer (C));
+            if False then
+               Put_Line (Output_Cursor'Image & Result'Last'Image & C'Image);
+            end if;
+
+            Result (Output_Cursor) :=
+              Alphabet.Direct_Alphabet (Integer (C) + 1);
             Output_Cursor := Output_Cursor + 1;
          end Push;
       begin
@@ -266,7 +276,9 @@ package body Baker.Alphabets is
    is
       pragma Unreferenced (Text, Alphabet);
    begin
-      pragma Compile_Time_Warning (True, "To_text_compact unimplemented");
+      pragma Compile_Time_Warning
+        (Warning_Flag, "To_text_compact unimplemented");
+
       return raise Program_Error;
    end To_Byte_Seq_Compact;
 
@@ -284,7 +296,7 @@ package body Baker.Alphabets is
       Nbit : Bit_Counter := 0;
       Input_Cursor : Positive := Text'First;
 
-      Result : Byte_Seq (0 .. Text'Length - 1);
+      Result : Byte_Seq (0 .. Text'Length);
       Output_Cursor : Integer_32 := Result'First;
 
       procedure Shift_Input is
@@ -306,6 +318,7 @@ package body Baker.Alphabets is
 
       procedure Push_Output (X : Unsigned_16) is
       begin
+         --  Put_Line (Output_Cursor'Image & Result'Last'Image & X'Image);
          Result (Output_Cursor) := Byte (X);
          Output_Cursor := Output_Cursor + 1;
       end Push_Output;
@@ -356,10 +369,15 @@ package body Baker.Alphabets is
          --  otherwise we would had be still in the while loop
          --
          exit when Nbit < 8;
+
+         Nbit := Nbit - 8;
       end loop;
 
       pragma Assert (Tail = 0 and then Input_Cursor > Text'Last);
 
+      Put_Line ("@@" & Integer_32'Image (Output_Cursor - Result'First)
+                & Result'First'Image
+                & Output_Cursor'Image);
       return Result (Result'First .. Output_Cursor - 1);
    end To_Byte_Seq;
 

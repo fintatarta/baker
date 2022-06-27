@@ -7,7 +7,7 @@ package body Baker.Data_Packets is
       "At the moment it requires that storage elements are octects");
 
    function To_Byte_Seq (Input : System.Storage_Elements.Storage_Array)
-                      return Byte_Seq
+                         return Byte_Seq
    is
       Result : Byte_Seq
         (Integer_32 (Input'First) .. Integer_32 (Input'Last));
@@ -66,8 +66,20 @@ package body Baker.Data_Packets is
    function Content_Of (Item : Tagged_Element)
                         return System.Storage_Elements.Storage_Array
    is
-   begin
+      use System.Storage_Elements;
 
+      subtype Offset is Storage_Offset;
+
+      Skip : constant Offset := Offset (32 + Integer_32 (Label_Type'Length));
+      From : constant Offset := Offset (Item'First) + Skip;
+      To   : constant Offset := Offset (Item'Last);
+
+   begin
+      return Result : Storage_Array (From .. To) do
+         for I in Result'Range loop
+            Result (I) := Storage_Element (Item (Integer_32 (I)));
+         end loop;
+      end return;
    end Content_Of;
 
    ----------
@@ -76,7 +88,7 @@ package body Baker.Data_Packets is
 
    function Join (Packet : Encrypted_Payload;
                   Nonce  : Stream.HSalsa20_Nonce)
-                return Full_Packet
+                  return Full_Packet
    is (Full_Packet (Byte_Seq (Nonce) & Byte_Seq (Packet)));
 
    function Nonce_Of (Item : Full_Packet)
