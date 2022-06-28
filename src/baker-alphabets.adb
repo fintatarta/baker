@@ -266,7 +266,8 @@ package body Baker.Alphabets is
             end if;
          end loop;
 
-         pragma Assert (Output_Cursor = Result'Last);
+         Put_Line ("##" & Output_Cursor'Image & Result'Last'Image);
+         pragma Assert (Output_Cursor = Result'Last + 1);
 
          return Result;
       end;
