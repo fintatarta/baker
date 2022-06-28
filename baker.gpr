@@ -25,5 +25,9 @@ project Baker is
       for Artifacts (".") use ("share");
    end Install;
 
+   package Builder is
+      for Switches ("ada") use ("-s");
+   end Builder;
+
 end Baker;
 
