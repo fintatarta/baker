@@ -1,7 +1,5 @@
 with Ada.Strings.Maps;
 
-with SPARKNaCl;
-
 package Baker.Alphabets is
    type Cookie_Alphabet (<>) is private;
 
@@ -29,7 +27,7 @@ package Baker.Alphabets is
                       C        : Character)
                       return Boolean;
 
-   function To_Text (Input    : SPARKNaCl.Byte_Seq;
+   function To_Text (Input    : Byte_Seq;
                      Alphabet : Cookie_Alphabet)
                      return String
      with
@@ -37,7 +35,7 @@ package Baker.Alphabets is
 
    function To_Byte_Seq (Text     : String;
                          Alphabet : Cookie_Alphabet)
-                         return SPARKNaCl.Byte_Seq
+                         return Byte_Seq
      with
        Pre => (for all C of Text => Contains (Alphabet, C));
 private
