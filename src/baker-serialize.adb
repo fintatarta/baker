@@ -53,6 +53,18 @@ package body Baker.Serialize is
 
    end Dump;
 
+   procedure Dump (X : Byte_Seq)
+   is
+   begin
+      Put ("[");
+      for C of X loop
+         Put (C'Image);
+      end loop;
+
+      Put_Line ("]");
+
+   end Dump;
+
    -----------------
    -- Make_Cookie --
    -----------------
@@ -86,6 +98,8 @@ package body Baker.Serialize is
                            N      => Nonce,
                            K      => Key);
 
+         Dump (Byte_Seq (Join (Encrypted, Nonce)));
+
          return Cookie_Type
            (Alphabets.To_Text (Input    => Byte_Seq (Join (Encrypted, Nonce)),
                                Alphabet => Alphabet));
@@ -114,7 +128,7 @@ package body Baker.Serialize is
       Cleartext  : Tagged_Element (Encrypted'Range);
       Valid_Data : Boolean;
    begin
-      Dump (Nonce);
+      Dump (Byte_Seq (Packet));
       Secretbox.Open (M      => Byte_Seq (Cleartext),
                       Status => Valid_Data,
                       C      => Byte_Seq (Encrypted),

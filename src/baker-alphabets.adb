@@ -60,7 +60,7 @@ package body Baker.Alphabets is
          end loop;
       end Closest_Power_Of_Two;
 
-      AB_Size : Positive;
+      AB_Size  : Positive;
       Log_Size : Bit_Counter;
    begin
       if Has_Duplicated_Chars (Alphabet) then
@@ -81,20 +81,21 @@ package body Baker.Alphabets is
       end case;
 
       declare
-         Result : Cookie_Alphabet :=
-                    (Size             => AB_Size,
-                     Log_Size         => Log_Size,
-                     Optimization     => Optimize,
-                     Direct_Alphabet  => Fixed.Head (Source => Alphabet,
-                                                     Count  => AB_Size),
-                     Reverse_Alphabet => (others => Empty_Entry));
+         Direct : constant String := Fixed.Head (Source => Alphabet,
+                                                 Count  => AB_Size);
+         Rev    : Reverse_Map := (others => Empty_Entry);
       begin
-         for Idx in Result.Direct_Alphabet'Range loop
-            Result.Reverse_Alphabet (Result.Direct_Alphabet (Idx)) := Idx;
+         for Idx in Direct'Range loop
+            Rev (Direct (Idx)) := Idx;
          end loop;
 
-         return Result;
+         return (Size             => AB_Size,
+                 Log_Size         => Log_Size,
+                 Optimization     => Optimize,
+                 Direct_Alphabet  => Direct,
+                 Reverse_Alphabet => Rev);
       end;
+
    end Make_Alphabet;
 
    --------------
@@ -198,8 +199,8 @@ package body Baker.Alphabets is
       declare
          use Interfaces;
 
-         Tail : Unsigned_16 := 0;
-         Nbit_Tail : Bit_Counter := 0;
+         Tail         : Unsigned_16 := 0;
+         Nbit_Tail    : Bit_Counter := 0;
          Input_Cursor : Integer_32 := Input'First;
 
          --
@@ -216,7 +217,7 @@ package body Baker.Alphabets is
          Output_Size : constant Positive :=
                          8 * Input'Length / Positive (Alphabet.Log_Size) + 1;
 
-         Result : String (1 .. Output_Size);
+         Result        : String (1 .. Output_Size);
          Output_Cursor : Natural := Result'First;
 
          procedure Shift_Value is
@@ -292,11 +293,11 @@ package body Baker.Alphabets is
    is
       use Interfaces;
 
-      Tail : Unsigned_16 := 0;
-      Nbit : Bit_Counter := 0;
+      Tail         : Unsigned_16 := 0;
+      Nbit         : Bit_Counter := 0;
       Input_Cursor : Positive := Text'First;
 
-      Result : Byte_Seq (0 .. Text'Length);
+      Result        : Byte_Seq (0 .. Text'Length);
       Output_Cursor : Integer_32 := Result'First;
 
       procedure Shift_Input is
