@@ -217,7 +217,7 @@ package body Baker.Alphabets is
          Output_Size : constant Positive :=
                          8 * Input'Length / Positive (Alphabet.Log_Size) + 1;
 
-         Result        : String (1 .. Output_Size);
+         Result        : String (1 .. Output_Size) := (others => '%');
          Output_Cursor : Natural := Result'First;
 
          procedure Shift_Value is
@@ -231,7 +231,7 @@ package body Baker.Alphabets is
 
          procedure Push (C : Unsigned_16) is
          begin
-            if False then
+            if True then
                Put_Line (Output_Cursor'Image & Result'Last'Image & C'Image);
             end if;
 
@@ -260,16 +260,19 @@ package body Baker.Alphabets is
                if Input_Cursor <= Input'Last then
                   Shift_Value;
                else
-                  Push (Tail);
+                  if Nbit_Tail > 0 then
+                     Push (Tail);
+                  end if;
+
                   exit;
                end if;
             end if;
          end loop;
 
          Put_Line ("##" & Output_Cursor'Image & Result'Last'Image);
-         pragma Assert (Output_Cursor = Result'Last + 1);
+         --  pragma Assert (Output_Cursor = Result'Last + 1);
 
-         return Result;
+         return Result (Result'First .. Output_Cursor - 1);
       end;
    end To_Text;
 
@@ -298,7 +301,7 @@ package body Baker.Alphabets is
       Nbit         : Bit_Counter := 0;
       Input_Cursor : Positive := Text'First;
 
-      Result        : Byte_Seq (0 .. Text'Length);
+      Result        : Byte_Seq (0 .. Text'Length) := (others => 42);
       Output_Cursor : Integer_32 := Result'First;
 
       procedure Shift_Input is
@@ -310,9 +313,13 @@ package body Baker.Alphabets is
                raise Program_Error;
             end if;
 
-            return Unsigned_16 (V);
+            return Unsigned_16 (V)-1;
          end Val;
       begin
+         Put_Line ("shift " & Input_Cursor'Image
+                   & Unsigned_16'Image (Val (Input_Cursor))
+                   & Nbit'Image);
+
          Tail := Tail + Val (Input_Cursor) * 2 ** Natural (Nbit);
          Nbit := Nbit + Alphabet.Log_Size;
          Input_Cursor := Input_Cursor + 1;
@@ -363,8 +370,6 @@ package body Baker.Alphabets is
             Shift_Input;
          end loop;
 
-         Push_Output (Tail mod 256);
-         Tail := Tail / 256;
 
          --
          --  If Nbit < 8 it must be Input_Cursor > Text'Last
@@ -372,10 +377,20 @@ package body Baker.Alphabets is
          --
          exit when Nbit < 8;
 
+         Put_Line ("TAIL=" & Tail'Image & Nbit'Image);
+         Push_Output (Tail mod 256);
+         Tail := Tail / 256;
+
          Nbit := Nbit - 8;
       end loop;
 
-      pragma Assert (Tail = 0 and then Input_Cursor > Text'Last);
+      if Nbit > 0 then
+         pragma Assert (Nbit < 8);
+         Put_Line ("TAIL++=" & Tail'Image & Nbit'Image);
+         Push_Output (Tail);
+      end if;
+
+      pragma Assert (Input_Cursor > Text'Last);
 
       Put_Line ("@@" & Integer_32'Image (Output_Cursor - Result'First)
                 & Result'First'Image

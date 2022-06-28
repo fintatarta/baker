@@ -41,10 +41,10 @@ package body Baker.Serialize is
       return Cookie_Type
    is (Make_Cookie (Item, Key, Random_Nonce, Alphabet));
 
-   procedure Dump (X : Stream.HSalsa20_Nonce)
+   procedure Dump (X : Stream.HSalsa20_Nonce; S : String)
    is
    begin
-      Put ("[");
+      Put (S & " NONCE [");
       for C of X loop
          Put (C'Image);
       end loop;
@@ -53,10 +53,10 @@ package body Baker.Serialize is
 
    end Dump;
 
-   procedure Dump (X : Byte_Seq)
+   procedure Dump (X : Byte_Seq; S : String := "")
    is
    begin
-      Put ("[");
+      Put (S & "BYTES [");
       for C of X loop
          Put (C'Image);
       end loop;
@@ -80,7 +80,7 @@ package body Baker.Serialize is
 
       Buffer : Element_Storage_Io.Buffer_Type;
    begin
-      Dump (Nonce);
+      Dump (Nonce, "make");
 
       Element_Storage_Io.Write (Buffer => Buffer,
                                 Item   => Item);
@@ -98,6 +98,7 @@ package body Baker.Serialize is
                            N      => Nonce,
                            K      => Key);
 
+         Dump (Byte_Seq (Encrypted), "enc,make ");
          Dump (Byte_Seq (Join (Encrypted, Nonce)));
 
          return Cookie_Type
@@ -129,6 +130,8 @@ package body Baker.Serialize is
       Valid_Data : Boolean;
    begin
       Dump (Byte_Seq (Packet));
+      Dump (Nonce, "parse");
+      Dump (Byte_Seq (Encrypted), "encrypted,parse ");
       Secretbox.Open (M      => Byte_Seq (Cleartext),
                       Status => Valid_Data,
                       C      => Byte_Seq (Encrypted),
