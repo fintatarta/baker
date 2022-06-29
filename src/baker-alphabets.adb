@@ -116,6 +116,35 @@ package body Baker.Alphabets is
       return raise Program_Error;
    end To_Text_Compact;
 
+   function Length_Field_Size (Alphabet : Cookie_Alphabet) return Natural
+   is
+      use Interfaces;
+
+      Result : Natural := 0;
+      Accum  : Integer_64 := 1;
+      Last   : constant Integer_64 := Integer_64 (Length_Type'Last);
+      Step   : constant Integer_64 := Integer_64 (Alphabet.Size);
+   begin
+      loop
+         --  Put_Line (Accum'Image & Last'Image & Step'Image
+         --            & Integer_64'Image (Accum - Last) & "%%%");
+
+         pragma Loop_Invariant (Accum = Step ** Result);
+         pragma Loop_Variant (Increases => Accum - Last);
+
+         exit when Accum > Last;
+
+         Accum := Accum * Step;
+         Result := Result + 1;
+      end loop;
+
+      pragma Assert (Step ** Result > Last
+                     and then
+                     Step ** (Result - 1) <= Last);
+
+      return Result;
+   end Length_Field_Size;
+
    -------------
    -- To_Text --
    -------------
@@ -215,7 +244,9 @@ package body Baker.Alphabets is
          --  the exact number of output symbols.
          --
          Output_Size : constant Positive :=
-                         8 * Input'Length / Positive (Alphabet.Log_Size) + 1;
+                         8 * Input'Length / Positive (Alphabet.Log_Size)
+                         + Length_Field_Size (Alphabet)
+                         + 1;
 
          Result        : String (1 .. Output_Size) := (others => '%');
          Output_Cursor : Natural := Result'First;
@@ -231,7 +262,7 @@ package body Baker.Alphabets is
 
          procedure Push (C : Unsigned_16) is
          begin
-            if True then
+            if False then
                Put_Line (Output_Cursor'Image & Result'Last'Image & C'Image);
             end if;
 
@@ -239,10 +270,24 @@ package body Baker.Alphabets is
               Alphabet.Direct_Alphabet (Integer (C) + 1);
             Output_Cursor := Output_Cursor + 1;
          end Push;
+
+         procedure Encode_Length is
+            Length     : Length_Type := Length_Type (Input'Length);
+            Field_Size : constant Natural := Length_Field_Size (Alphabet);
+         begin
+            for I in 1 .. Field_Size loop
+               Push (Unsigned_16 (Length mod Length_Type (Alphabet.Size)));
+               Length := Length / Length_Type (Alphabet.Size);
+            end loop;
+
+            pragma Assert (Length = 0);
+         end Encode_Length;
       begin
          if Input'Length = 0 then
             raise Constraint_Error;
          end if;
+
+         Encode_Length;
 
          Shift_Value;
 
@@ -304,21 +349,22 @@ package body Baker.Alphabets is
       Result        : Byte_Seq (0 .. Text'Length) := (others => 42);
       Output_Cursor : Integer_32 := Result'First;
 
-      procedure Shift_Input is
-         function Val (Idx : Positive) return Unsigned_16
-         is
-            V : constant Integer := Alphabet.Reverse_Alphabet (Text (Idx));
-         begin
-            if V = Empty_Entry then
-               raise Program_Error;
-            end if;
-
-            return Unsigned_16 (V)-1;
-         end Val;
+      function Val (Idx : Positive) return Unsigned_16
+      is
+         V : constant Integer := Alphabet.Reverse_Alphabet (Text (Idx));
       begin
-         Put_Line ("shift " & Input_Cursor'Image
-                   & Unsigned_16'Image (Val (Input_Cursor))
-                   & Nbit'Image);
+         if V = Empty_Entry then
+            raise Program_Error;
+         end if;
+
+         return Unsigned_16 (V)-1;
+      end Val;
+
+      procedure Shift_Input is
+      begin
+         --  Put_Line ("shift " & Input_Cursor'Image
+         --            & Unsigned_16'Image (Val (Input_Cursor))
+         --            & Nbit'Image);
 
          Tail := Tail + Val (Input_Cursor) * 2 ** Natural (Nbit);
          Nbit := Nbit + Alphabet.Log_Size;
@@ -331,10 +377,30 @@ package body Baker.Alphabets is
          Result (Output_Cursor) := Byte (X);
          Output_Cursor := Output_Cursor + 1;
       end Push_Output;
+
+      procedure Decode_Length (Length : out Length_Type)
+      is
+         Field_Size : constant Natural := Length_Field_Size (Alphabet);
+         Nbit       : Bit_Counter := 0;
+      begin
+         Length := 0;
+
+         for I in 1 .. Field_Size loop
+            Length := Length
+              + Length_Type ((2 ** Natural (Nbit)) * Val (Input_Cursor));
+
+            Input_Cursor := Input_Cursor + 1;
+            Nbit := Nbit + Alphabet.Log_Size;
+         end loop;
+      end Decode_Length;
+
+      Data_Length : Length_Type;
    begin
       if Alphabet.Optimization = Size then
          return To_Byte_Seq_Compact (Text, Alphabet);
       end if;
+
+      Decode_Length (Data_Length);
 
       --
       --  The input value (Tail, Nbit, I) is
@@ -377,7 +443,7 @@ package body Baker.Alphabets is
          --
          exit when Nbit < 8;
 
-         Put_Line ("TAIL=" & Tail'Image & Nbit'Image);
+         --  Put_Line ("TAIL=" & Tail'Image & Nbit'Image);
          Push_Output (Tail mod 256);
          Tail := Tail / 256;
 
@@ -386,16 +452,18 @@ package body Baker.Alphabets is
 
       if Nbit > 0 then
          pragma Assert (Nbit < 8);
-         Put_Line ("TAIL++=" & Tail'Image & Nbit'Image);
+         --  Put_Line ("TAIL++=" & Tail'Image & Nbit'Image);
          Push_Output (Tail);
       end if;
 
       pragma Assert (Input_Cursor > Text'Last);
 
-      Put_Line ("@@" & Integer_32'Image (Output_Cursor - Result'First)
-                & Result'First'Image
-                & Output_Cursor'Image);
-      return Result (Result'First .. Output_Cursor - 1);
+      --  Put_Line ("@@" & Integer_32'Image (Output_Cursor - Result'First)
+      --            & Result'First'Image
+      --            & Output_Cursor'Image);
+
+      return Result
+        (Result'First .. Result'First + Integer_32 (Data_Length - 1));
    end To_Byte_Seq;
 
 end Baker.Alphabets;

@@ -27,10 +27,13 @@ package Baker.Alphabets is
                       C        : Character)
                       return Boolean;
 
+   Max_Length : constant := 65_536;
+
    function To_Text (Input    : Byte_Seq;
                      Alphabet : Cookie_Alphabet)
                      return String
      with
+       Pre => Input'Length < Max_Length,
        Post => (for all C of To_Text'Result => Contains (Alphabet, C));
 
    function To_Byte_Seq (Text     : String;
@@ -52,7 +55,7 @@ private
          (for all Ch in Rev'Range =>
              Rev (Ch) = Empty_Entry or else Dir (Rev (Ch)) = Ch));
 
-   type Bit_Counter is range 0 .. 16;
+   type Bit_Counter is range 0 .. 64;
 
    type Cookie_Alphabet (Size : Positive) is
       record
@@ -67,5 +70,7 @@ private
      and then
        Is_Inverse (Cookie_Alphabet.Direct_Alphabet,
                    Cookie_Alphabet.Reverse_Alphabet);
+
+   type Length_Type is mod Max_Length;
 
 end Baker.Alphabets;
